@@ -1,0 +1,11 @@
+/node_modules
+/vendor
+/.idea
+/.vscode
+/.env
+/bootstrap/cache/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/public/storage
+/firebase/sistema-gestion-textil-firebase-adminsdk-fbsvc-6cf7b6407e.json
