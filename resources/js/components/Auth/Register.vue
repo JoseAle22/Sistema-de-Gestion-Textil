@@ -4,13 +4,24 @@
       <h2 class="register-title">Registro</h2>
       <form @submit.prevent="register" class="register-form">
         <div class="form-group">
-          <label for="name" class="form-label">Nombre</label>
+          <label for="firstName" class="form-label">Nombres</label>
           <input
-            v-model="name"
+            v-model="firstName"
             type="text"
-            id="name"
+            id="firstName"
             class="form-input"
-            placeholder="Ingresa tu nombre"
+            placeholder="Ingresa tus nombres"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="lastName" class="form-label">Apellidos</label>
+          <input
+            v-model="lastName"
+            type="text"
+            id="lastName"
+            class="form-input"
+            placeholder="Ingresa tus apellidos"
             required
           />
         </div>
@@ -54,8 +65,49 @@
             <option value="admin">Administrador</option>
           </select>
         </div>
+        <div class="form-group">
+          <label for="phone" class="form-label">Teléfono</label>
+          <input
+            v-model="phone"
+            type="tel"
+            id="phone"
+            class="form-input"
+            placeholder="Ingresa tu número de teléfono"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="address" class="form-label">Dirección</label>
+          <input
+            v-model="address"
+            type="text"
+            id="address"
+            class="form-input"
+            placeholder="Ingresa tu dirección"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="birthdate" class="form-label">Fecha de Nacimiento</label>
+          <input
+            v-model="birthdate"
+            type="date"
+            id="birthdate"
+            class="form-input"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="gender" class="form-label">Género</label>
+          <select v-model="gender" id="gender" class="form-input">
+            <option value="male">Masculino</option>
+            <option value="female">Femenino</option>
+            <option value="other">Otro</option>
+          </select>
+        </div>
         <button type="submit" class="register-button">Registrarse</button>
       </form>
+      <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
       <p v-if="error" class="error-message">{{ error }}</p>
       <p class="login-text">
         ¿Ya tienes una cuenta?
@@ -65,50 +117,86 @@
   </div>
 </template>
 
+
 <script>
+import { auth, db, createUserWithEmailAndPassword } from "@/firebase.js";
+import { setDoc, doc } from "firebase/firestore";
+
 export default {
   data() {
     return {
-      name: '',
-      cedula: '',
-      email: '',
-      password: '',
-      role: 'employee',
-      error: '',
-      adminCedulas: ['12345678', '87654321', '31036510'], // Lista de cédulas permitidas para administradores
+      firstName: "",
+      lastName: "",
+      cedula: "",
+      email: "",
+      password: "",
+      role: "employee",
+      phone: "",
+      address: "",
+      birthdate: "",
+      gender: "male",
+      error: "",
+      successMessage: "", // Mensaje de éxito
+      adminCedulas: ["12345678", "87654321", "31036510"], // Lista de cédulas para admin
     };
   },
   methods: {
     async register() {
-    try {
-      // Validar si el rol es administrador y la cédula no está en la lista permitida
-      if (this.role === 'admin' && !this.adminCedulas.includes(this.cedula)) {
-        this.error = 'No puedes registrarte como administrador. Cédula no válida.';
-        return;
-      }
+      try {
+        // Limpia mensajes previos
+        this.error = "";
+        this.successMessage = "";
 
-      const response = await axios.post('/api/register', {
-        name: this.name,
-        cedula: this.cedula,
-        email: this.email,
-        password: this.password,
-        role: this.role,
-      });
+        // Validar si el rol es administrador y la cédula no está en la lista permitida
+        if (this.role === "admin" && !this.adminCedulas.includes(this.cedula)) {
+          this.error = "No puedes registrarte como administrador. Cédula no válida.";
+          return;
+        }
 
-      // Redirigir al login después del registro
-      this.$router.push('/login');
-    } catch (error) {
-      // Mostrar el mensaje de error del servidor
-      if (error.response && error.response.data.message) {
-        this.error = error.response.data.message;
-      } else {
-        this.error = 'Error en el registro';
+        // Registrar al usuario en Firebase Authentication
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          this.email,
+          this.password
+        );
+        const user = userCredential.user;
+        console.log("Usuario registrado:", user);
+
+        // Guardar datos adicionales en Firestore usando el UID como ID del documento
+        await setDoc(doc(db, "users", user.uid), {
+          firstName: this.firstName,
+          lastName: this.lastName,
+          cedula: this.cedula,
+          email: this.email,
+          role: this.role,
+          phone: this.phone,
+          address: this.address,
+          birthdate: this.birthdate,
+          gender: this.gender,
+        });
+        console.log("Datos del usuario guardados en Firestore.");
+
+        // Mostrar mensaje de éxito
+        this.successMessage = "Registro exitoso. Ahora puedes iniciar sesión.";
+
+        // Redirigir al formulario de inicio de sesión después de unos segundos
+        setTimeout(() => {
+          this.$router.push("/login");
+        }, 3000);
+      } catch (error) {
+        console.error("Error en el registro:", error);
+
+        if (error.code === "auth/email-already-in-use") {
+          this.error = "El correo electrónico ya está registrado. Por favor, inicia sesión.";
+        } else {
+          this.error = "Ocurrió un error durante el registro.";
+        }
       }
-    }
+    },
   },
-},
 };
 </script>
+
 
 <style scoped>
 /* Estilos para el contenedor principal */
@@ -220,5 +308,11 @@ export default {
 
 .login-link:hover {
   color: #2575fc;
+}
+
+.success-message {
+  color: green;
+  font-weight: bold;
+  margin-top: 10px;
 }
 </style>

@@ -37,35 +37,65 @@
 </template>
 
 <script>
+import { auth, signInWithEmailAndPassword } from "@/firebase.js";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/firebase.js"; // Asegúrate de exportar `db` en tu archivo firebase.js
+
 export default {
   data() {
     return {
-      email: '',
-      password: '',
-      error: '',
+      email: "",
+      password: "",
+      error: "",
     };
   },
   methods: {
     async login() {
-      try {
-        const response = await axios.post('/api/login', {
-          email: this.email,
-          password: this.password,
-        });
+  try {
+    // Inicia sesión con Firebase
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      this.email,
+      this.password
+    );
+    const user = userCredential.user;
+    console.log("Usuario autenticado:", user);
 
-        // Guardar el token de autenticación
-        localStorage.setItem('token', response.data.token);
+    // Obtén el token de Firebase
+    const token = await user.getIdToken();
+    console.log("Token de Firebase:", token);
 
-        // Redirigir según el rol
-        if (response.data.role === 'admin') {
-          this.$router.push('/admin/dashboard');
-        } else {
-          this.$router.push('/employee/dashboard');
-        }
-      } catch (error) {
-        this.error = 'Credenciales incorrectas';
+    // Guarda el token en localStorage (opcional)
+    localStorage.setItem("token", token);
+
+    // Obtén los datos del usuario desde Firestore
+    console.log("Buscando documento en Firestore para el UID:", user.uid);
+    const userDoc = await getDoc(doc(db, "users", user.uid)); // Busca el documento con el UID del usuario
+    console.log("Documento encontrado:", userDoc.exists() ? userDoc.data() : "No existe");
+
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      console.log("Datos del usuario:", userData);
+
+      // Redirige al usuario según su rol
+      if (userData.role === "admin") {
+        this.$router.push("/admin/dashboard");
+      } else {
+        this.$router.push("/employee/dashboard");
       }
-    },
+    } else {
+      this.error = "No se encontraron datos del usuario.";
+      console.error("No se encontró el documento en Firestore para el UID:", user.uid);
+    }
+  } catch (error) {
+    console.error("Error de autenticación:", error);
+    if (error.code === "auth/wrong-password" || error.code === "auth/user-not-found") {
+      this.error = "Correo electrónico o contraseña incorrectos.";
+    } else {
+      this.error = "Ocurrió un error durante el inicio de sesión.";
+    }
+  }
+},
   },
 };
 </script>
